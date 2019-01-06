@@ -20,7 +20,7 @@ It does not follow links to other web sites or parent directory.
   Options:
   
     -l <url>    : Local domain (ex. http://localhost/foobar/
-              Not with filename (ex. http://localhost/foo/bar.php)
+                  Not with filename (ex. http://localhost/foo/bar.php)
 
     -r <url>    : Remote domain
 
