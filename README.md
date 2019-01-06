@@ -1,4 +1,4 @@
-# sitemap
+# Sitemap.sh
 
 Sitemap xml generator
 
@@ -20,21 +20,21 @@ It does not follow links to other web sites or parent directory.
   Options:
   
     -l <url>    : Local domain (ex. http://localhost/foobar/
-		              Not with filename (ex. http://localhost/foo/bar.php)
+              Not with filename (ex. http://localhost/foo/bar.php)
 
     -r <url>    : Remote domain
 
     -d <path>   : Doc Root
 
     -p <number> : Priority. Valid values range from 0.0 to 1.0.
-		  Default is 0.5
+                  Default is 0.5
 
     -f <string> : Frequency. Valid values are:
-		  always, hourly, daily, weekly, monthly, yearly, never
-		  Default is weekly
+                  always, hourly, daily, weekly, monthly, yearly, never
+                  Default is weekly
 
     -i <string> : Name of index file
-		  Default is index.php
+                  Default is index.php
     
     -h          : Print this help and exit
 

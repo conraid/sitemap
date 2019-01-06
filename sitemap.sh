@@ -261,7 +261,7 @@ done < $SORTFILE
 # Close xml file
 echo "</urlset>" >> sitemap.xml
 
-# Comperss sitemap.xml
+# Compress sitemap.xml
 gzip -9 -f sitemap.xml -c > sitemap.xml.gz || { echo "Failed to zipper sitemap"; exit 1; }
 
 # Delete temporary files
