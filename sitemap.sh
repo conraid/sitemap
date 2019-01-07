@@ -46,15 +46,15 @@ SORTFILE=$(mktemp) || { echo "Failed to create temp file"; exit 1; }
 
 # Not Root. And not sudo please ;)
 if [[ $EUID = 0 ]]; then
-  echo "This script should not be run as root" 1>&2
+  err "This script should not be run as root" 1>&2
   exit 1
 fi
 
-function info() {
 # Show script description
+function info() {
 cat << EOF
   This script crawls a web site from a given starting local URL or
-  remote URL and generates a Sitemap file in the format that is 
+  remote URL and generates a Sitemap file in the format that is
   accepted by Google.
   It does not follow links to other web sites or parent directory.
   It also respects robots.txt file.
@@ -62,44 +62,49 @@ EOF
 help
 }
 
-function  help() {
 # Show help usate
+function  help() {
 cat << EOF
 
   Usage:
   $(basename $0) [OPTIONS]
-  
+
   Example:
-  $(basename $0) -l https://localhost/foobar/ -r https://example.com -d /home/html/foobar -p 0.8 -f daily 
+  $(basename $0) -l https://localhost/foobar/ -r https://example.com -d /home/html/foobar -p 0.8 -f daily
 
   Options:
     -r <url>    : Remote domain
-        
+
     -l <url>    : Local domain (ex. http://localhost/foobar/
-		  Not with filename (ex. http://localhost/foo/bar.php)
+                  Not with filename (ex. http://localhost/foo/bar.php)
 
     -p <number> : Priority. Valid values range from 0.0 to 1.0.
-		  Default is "0.5"
+                  Default is "0.5"
 
     -f <string> : Frequency. Valid values are:
                   always, hourly, daily, weekly, monthly, yearly, never
                   Default is "weekly"
 
     -i <string> : Name of index file
-		  Default is "index.php"
-		  
+                  Default is "index.php"
+
     -d <path>   : Doc Root
-		  
-    -a <ext>	: Comma-separated list of accepted extensions.
-		  Default is "php,html"
-    
+
+    -a <ext>    : Comma-separated list of accepted extensions.
+                  Default is "php,html"
+
     -h          : Print this help and exit
 
 EOF
 }
 
+# Print error in STDERR
+function err() {
+  echo -e "\n  [$(date +'%Y-%m-%dT%H:%M:%S%z')]:" "$@" "\n" >&2
+}
+
 # Command line parameter processing:
-while getopts ":l:r:d:p:f:i:a:e:h" Option
+while getopts ":l:r:d:p:f:i:a:h" Option
 do
   case $Option in
     h )
@@ -113,33 +118,34 @@ do
         LOCALURL="${OPTARG}"
         ;;
     d )
-	DOCROOT="${OPTARG}"
-	;;
+        DOCROOT="${OPTARG}"
+        ;;
     p )
-	PRIORITY_DEFAULT="${OPTARG}"
-	;;
+        PRIORITY_DEFAULT="${OPTARG}"
+        ;;
     f )
-	FREQ_DEFAULT="${OPTARG}"
-	;;
-    a)  
-	ACCEPTED_EXT="${OPTARG}"
-	;;
+        FREQ_DEFAULT="${OPTARG}"
+        ;;
+    a )
+        ACCEPTED_EXT="${OPTARG}"
+        ;;
+    i )
+        INDEX_FILE="${OPTARG}"
+        ;;
     \?)
-	echo ""
-        echo "  Invalid option: -$OPTARG"
+        err "Invalid option: -$OPTARG"
         help
         exit 1
         ;;
      :)
-	echo ""
-        echo "  Option -$OPTARG requires an argument."
+        err "Option -$OPTARG requires an argument."
         help
         exit 1
         ;;
   esac
 done
 # End of option parsing.
-shift $(($OPTIND - 1))
+shift $((OPTIND - 1))
 
 # Check accepted extensions
 if [[ -z ${ACCEPTED_EXT:-""} ]]; then
@@ -153,8 +159,7 @@ fi
 # Check if at least one of A and B is present.
 # If so, set the URLSCAN variable based on the parameters passed.
 if [ -z ${LOCALURL:-""} ] && [ -z ${REMOTEURL:-""} ]; then
-  echo ""
-  echo " $(basename $0) requires -r or -l."
+  err "$(basename $0) requires -r or -l."
   help
   exit 1
 elif [ -z ${LOCALURL:-""} ]; then
@@ -166,15 +171,15 @@ else
 fi
 
 # Set default value of the variables
-indexfile=${INDEX_FILE:-$DEFAULT_INDEX}  
+indexfile=${INDEX_FILE:-$DEFAULT_INDEX}
 
-# Make <url> 
+# Make <url>
 function makeurl() {
 
   priority=${PRIORITY_DEFAULT:-$DEFAULT_PRIORITY}
   freq=${FREQ_DEFAULT:-$DEFAULT_FREQ}
 
-  if ! [ -z ${DOCROOT:-""} ]; then
+  if [ -n "${DOCROOT:-""}" ]; then
     FILE=$(echo $1 | sed 's|/$||' | sed "s|${LOCALURL%/}|$DOCROOT|")
     FILENAME=$(basename $FILE)
 
@@ -183,10 +188,10 @@ function makeurl() {
       FILE=${FILE}/$FILENAME
     fi
     if [ -f $FILE ]; then
-    lastmod=$(date -r $FILE +%F)
-    else 
-	echo "FILE $FILE not exists"
-	exit
+      lastmod=$(date -r $FILE +%F)
+    else
+      # Show a error but not exit.
+      err "FILE $FILE not exists. Check parameters"
     fi
   fi
 
@@ -213,13 +218,16 @@ function makeurl() {
   fi
   # End
 
+
   echo "Add $remotefile"
-  echo "<url>" >> sitemap.xml
-  echo "  <loc>$remotefile</loc>" >> sitemap.xml
-  [[ -z ${DOCROOT:-""} ]] || echo "  <lastmod>$lastmod</lastmod>" >> sitemap.xml
-  echo "  <changefreq>$freq</changefreq>" >> sitemap.xml
-  echo "  <priority>$priority</priority>" >> sitemap.xml
-  echo "</url>" >> sitemap.xml
+  { 
+    echo "<url>"
+    echo "  <loc>$remotefile</loc>"
+    [[ -z ${DOCROOT:-""} ]] || echo "  <lastmod>$lastmod</lastmod>"
+    echo "  <changefreq>$freq</changefreq>"
+    echo "  <priority>$priority</priority>"
+    echo "</url>"
+  } >> sitemap.xml
 }
 
 # Crawler
@@ -240,29 +248,28 @@ EOF
 
 # Modify XZZ for case statement
 ACC_EXT="*/"
-
 for i in $(echo $ACCEPTED_EXT | tr , " "); do
   ACC_EXT="$ACC_EXT |*.$i"
 done
 
 # Read SORTFILE and call makeurl
-while read filelist; do
+while read -r filelist; do
   eval "case \"$filelist\" in
-    robots.txt )
-	;;
-    $ACC_EXT)
-	makeurl \"$filelist\"
-	;;
-    *)
-	;;
-  esac"
+	  robots.txt )
+            ;;
+          $ACC_EXT)
+            makeurl \"$filelist\"
+            ;;
+          *)
+            ;;
+        esac"
 done < $SORTFILE
 
 # Close xml file
 echo "</urlset>" >> sitemap.xml
 
 # Compress sitemap.xml
-gzip -9 -f sitemap.xml -c > sitemap.xml.gz || { echo "Failed to zipper sitemap"; exit 1; }
+gzip -9 -f sitemap.xml -c > sitemap.xml.gz || { err "Failed to zipper sitemap"; exit 1; }
 
 # Delete temporary files
-rm $LISTFILE $SORTFILE || { echo "Failed to remove temporary files"; exit 1; }
+rm $LISTFILE $SORTFILE || { err "Failed to remove temporary files"; exit 1; }
