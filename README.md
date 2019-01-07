@@ -11,7 +11,7 @@ It does not follow links to other web sites or parent directory.
 
   Usage:
   
-      $ sitemap.sh -l <url> [-r <url>]"
+     $ sitemap.sh -l <url> [-r <url>]"
 
   Example:
   
@@ -49,12 +49,12 @@ Simple copy file in $PATH and
 **THIS IS ONLY A TESTING SCRIPT** to generate sitemap in my situation.
 
 It was written quickly, so it has errors and *ugliness* of course.
-IT is here because I need a public place to keep it, but if you need a sitemap generatortry one of this:
+
+It is here because I need a public place to keep it, but if you need a sitemap generator try one of this:
 https://code.google.com/archive/p/sitemap-generators/wikis/SitemapGenerators.wiki
 
-If you have advice and suggestions to give, you are welcome.
-
-
 ## Note
+
+If you have advice and suggestions to give, you are welcome.
 
 I'm sorry for my bad english
