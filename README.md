@@ -35,6 +35,9 @@ It does not follow links to other web sites or parent directory.
 
     -i <string> : Name of index file
                   Default is index.php
+
+    -a <ext>    : Comma-separated list of accepted extensions.
+                  Default is "php,html"
     
     -h          : Print this help and exit
 
