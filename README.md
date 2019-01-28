@@ -19,27 +19,29 @@ It does not follow links to other web sites or parent directory.
 
   Options:
   
-    -l <url>    : Local domain (ex. http://localhost/foobar/
-                  Not with filename (ex. http://localhost/foo/bar.php)
+    -r|--remote <url>      : Remote domain
 
-    -r <url>    : Remote domain
+    -l|--local <url>       : Local domain (ex. http://localhost/foobar/
+                             Not with filename (ex. http://localhost/foo/bar.php)
 
-    -d <path>   : Doc Root
+    -p|--priority <number> : Priority. Valid values range from 0.0 to 1.0.
+                             Default is "0.5"
 
-    -p <number> : Priority. Valid values range from 0.0 to 1.0.
-                  Default is 0.5
+    -f|--frequency <string>: Frequency. Valid values are:
+                             always, hourly, daily, weekly, monthly, yearly, never
+                             Default is "weekly"
 
-    -f <string> : Frequency. Valid values are:
-                  always, hourly, daily, weekly, monthly, yearly, never
-                  Default is weekly
+    -i|--index <string>    : Name of index file
+                             Default is "index.php"
 
-    -i <string> : Name of index file
-                  Default is index.php
+    -d|--docroot <path>    : Doc Root
 
-    -a <ext>    : Comma-separated list of accepted extensions.
-                  Default is "php,html"
-    
-    -h          : Print this help and exit
+    -a|--accepted <ext>    : Comma-separated list of accepted extensions.
+                             Default is "php,html"
+
+    -v|--version           : Print version
+
+    -h|--help              : Print this help and exit
 
 ## Installation
 

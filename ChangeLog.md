@@ -1,5 +1,13 @@
 = Changelog
 
+== 0.3 ==
+
+- Removed getops to also use long options
+- Added check frequency parameter
+- Added check priority parameter
+- Added version parameter
+- Fixed double quote to prevent globbing and word splitting in according with shellcheck
+
 == 0.2 ==
 
 - Added -r to read in according with shellcheck.
