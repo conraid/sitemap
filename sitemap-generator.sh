@@ -41,7 +41,6 @@ DEFAULT_INDEX="index.php"
 DEFAULT_PRIORITY="0.5"
 DEFAULT_FREQ="weekly"
 
-LISTFILE=$(mktemp) || { echo "Failed to create temp file"; exit 1; }
 SORTFILE=$(mktemp) || { echo "Failed to create temp file"; exit 1; }
 
 # Not Root. And not sudo please ;)
@@ -82,7 +81,7 @@ cat << EOF
   Options:
     -r|--remote <url>      : Remote domain
 
-    -l|--local <url>       : Local domain (ex. http://localhost/foobar/
+    -l|--local <url>       : Local domain (ex. http://localhost/foobar/ )
                              Not with filename (ex. http://localhost/foo/bar.php)
 
     -p|--priority <number> : Priority. Valid values range from 0.0 to 1.0.
@@ -99,6 +98,10 @@ cat << EOF
 
     -a|--accepted <ext>    : Comma-separated list of accepted extensions.
                              Default is "php,html"
+
+    -4                     : Add inet4-only to wget (connect only to IPv4 addresses).
+
+    -6                     : Add inet6-only to wget (connect only to IPv4 addresses).
 
     -v|--version           : Print version
 
@@ -199,6 +202,12 @@ while test $# -gt 0; do
     -a*)
       ACCEPTED_EXT="${1##-a}"
       ;;
+    -4)
+      IPV4="-4"
+      ;;
+    -6)
+      IPV6="-6"
+      ;;
     -h|--help)
       help
       exit 0
@@ -222,6 +231,11 @@ while test $# -gt 0; do
   shift
 done
 
+
+if [ ${IPV4:-""} == '-4' ] && [ ${IPV6:-""} == '-6' ]; then
+  err "Cannot specify both -4 and -6."
+fi
+
 # Check accepted extensions
 if [[ -z ${ACCEPTED_EXT:-""} ]]; then
   ACCEPTED_EXT="${ACCEPTED_EXT:-$DEFAULT_EXT}"
@@ -230,6 +244,9 @@ elif [ "${ACCEPTED_EXT: -1}" == "," ] ; then
 else
   ACCEPTED_EXT="${ACCEPTED_EXT//[[:space:]]/}"
 fi
+
+# Set default value of the variables
+indexfile="${INDEX_FILE:-$DEFAULT_INDEX}"
 
 # Check if at least one of A and B is present.
 # If so, set the URLSCAN variable based on the parameters passed.
@@ -244,9 +261,6 @@ elif [ "${LOCALURL: -1}" != "/" ] ; then
 else
   URLSCAN="${LOCALURL}"
 fi
-
-# Set default value of the variables
-indexfile="${INDEX_FILE:-$DEFAULT_INDEX}"
 
 # Make <url>
 function makeurl() {
@@ -306,9 +320,15 @@ function makeurl() {
 }
 
 # Crawler
-echo "Scan $URLSCAN"
-wget --spider -r -nd -l inf --no-verbose --no-check-certificate --output-file="$LISTFILE" -np -A "$ACCEPTED_EXT" "$URLSCAN"
-grep -i URL "$LISTFILE" | awk -F 'URL:' '{print $2}' | cut -d" " -f1 | sort -u > "$SORTFILE"
+echo "Scan: $URLSCAN"
+SORTFILE=sort.txt
+
+wget --spider -r -nd -l inf --no-verbose --no-check-certificate -np -A "$ACCEPTED_EXT" "$URLSCAN" "${IPV4:-""}" "${IPV6:-""}" 2>&1 \
+| grep -i URL | awk -F 'URL:' '{print $2}' | cut -d" " -f1 | sort -u > "$SORTFILE"
+
+if ! [ -s $SORTFILE ]; then
+  err "Error in wget. Check parameters."
+fi
 
 # Create XML file
 cat << EOF > sitemap.xml
@@ -347,4 +367,4 @@ echo "</urlset>" >> sitemap.xml
 gzip -9 -f sitemap.xml -c > sitemap.xml.gz || { err "Failed to zipper sitemap"; exit 1; }
 
 # Delete temporary files
-rm "$LISTFILE" "$SORTFILE" || { err "Failed to remove temporary files"; exit 1; }
+rm "$SORTFILE" || { err "Failed to remove temporary files"; exit 1; }

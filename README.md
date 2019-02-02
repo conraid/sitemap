@@ -2,27 +2,26 @@
 
 Sitemap xml generator
 
-## Description 
+## Description
 
 This script crawls a web site from a given starting local URL and generates a Sitemap file in the format that is accepted by Google.
-It does not follow links to other web sites or parent directory. 
+It does not follow links to other web sites or parent directory.
 
 ## Usage
 
   Usage:
-  
+
      $ sitemap.sh -l <url> [-r <url>]"
 
   Example:
-  
-     $ sitemap.sh -l https://localhost/foobar/ -r https://example.com -d /home/html/foobar -p 0.8 -f daily 
+
+     $ sitemap.sh -l http://example.home.local/foobar/index.php -r https://example.com -d /home/html/foobar -p 0.8 -f daily
 
   Options:
-  
+
     -r|--remote <url>      : Remote domain
 
-    -l|--local <url>       : Local domain (ex. http://localhost/foobar/
-                             Not with filename (ex. http://localhost/foo/bar.php)
+    -l|--local <url>       : Local domain (ex. http://example.home.local/foobar/index.php)
 
     -p|--priority <number> : Priority. Valid values range from 0.0 to 1.0.
                              Default is "0.5"
@@ -48,9 +47,9 @@ It does not follow links to other web sites or parent directory.
 Simple copy file in $PATH and
 
     $ chmod +x sitemap.sh
-    
-## Warnings    
-   
+
+## Warnings
+
 **THIS IS ONLY A TESTING SCRIPT** to generate sitemap in my situation.
 
 It was written quickly, so it has errors and *ugliness* of course.

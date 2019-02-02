@@ -1,5 +1,12 @@
 = Changelog
 
+== 0.4 ==
+
+- Changed name in sitemap-generator
+- Added ipv4 and ipv6 parameter
+- Combined wget and output parsing, because in some circumstances wget exit without giving error
+- Added check for wget and parsing ouput
+
 == 0.3 ==
 
 - Removed getops to also use long options
@@ -11,14 +18,14 @@
 == 0.2 ==
 
 - Added -r to read in according with shellcheck.
-- Removed -e from getops. 
+- Removed -e from getops.
   IT needed for the "rejected" in wget, but then I decided not to use it
-- Readded -i parameters in case statement. 
+- Readded -i parameters in case statement.
   I had temporarily removed in development stage. I'm sorry.
 - Some aesthetic improvement.
 - Added err function, as recommended in https://google.github.io/styleguide/shell.xml
 
-  
+
 == 0.1 ==
 
 - Initial project
