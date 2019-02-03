@@ -1,5 +1,11 @@
 = Changelog
 
+== 0.5 ==
+
+- Set ipv4 as default. Then removed the relative option and left only the one for ipv6.
+- Added sitemap filename option
+- Some cosmetic changes
+
 == 0.4 ==
 
 - Changed name in sitemap-generator

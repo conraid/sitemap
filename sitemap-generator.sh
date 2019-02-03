@@ -30,23 +30,24 @@
 # If you need a generic and/or better sitemap generator try one of this
 # https://code.google.com/archive/p/sitemap-generators/wikis/SitemapGenerators.wiki
 
-VERSION=0.3
+VERSION=0.5
 
 # Exit on error and undeclared variables
 set -eu
 
-# THE DEFAULTS INITIALIZATION - OPTIONALS
+# THE DEFAULT INITIALIZATIONS - OPTIONALS
 DEFAULT_EXT="php,html"
 DEFAULT_INDEX="index.php"
 DEFAULT_PRIORITY="0.5"
 DEFAULT_FREQ="weekly"
+DEFAULT_IPV="-4"
+DEFAULT_OUTPUT="sitemap.xml"
 
 SORTFILE=$(mktemp) || { echo "Failed to create temp file"; exit 1; }
 
 # Not Root. And not sudo please ;)
 if [[ "$EUID" = 0 ]]; then
   err "This script should not be run as root" 1>&2
-  exit 1
 fi
 
 # Show script description
@@ -64,48 +65,50 @@ help
 # Print error in STDERR
 function err() {
   echo -e "\n  [$(date +'%Y-%m-%d %H:%M:%S %z')]:" "$@" "\n" >&2
-  exit
+  exit 1
 }
 
 # Show help usate
 function  help() {
 cat << EOF
 
-  Usage:
-  $(basename "$0") [-r|--remote <url>] [-l|--locale <url>] [-p|--priority <number>] [-f|--frequency <string>] [-i|--index <string>] [-d|--docroot <path>] [-a|--accepted <ext>] [-h|--help] [-v|--version]
+Usage:
+  $(basename "$0") [-r|--remote <url>] [-l|--locale <url>] [-p|--priority <number>] [-f|--frequency <string>] [-i|--index <string>] [-d|--docroot <path>] [-a|--accepted <ext>] [-o|--output-file] [-6] [-h|--help] [-v|--version]
 
 
-  Example:
+Example:
   $(basename "$0") -l https://localhost/foobar/ -r https://example.com -d /home/html/foobar -p 0.8 -f daily
 
-  Options:
-    -r|--remote <url>      : Remote domain
+Options:
+ -r|--remote <url>           Set the remote URL
 
-    -l|--local <url>       : Local domain (ex. http://localhost/foobar/ )
+ -l|--local <url>            Set the local URL (ex. http://localhost/foobar/ )
                              Not with filename (ex. http://localhost/foo/bar.php)
 
-    -p|--priority <number> : Priority. Valid values range from 0.0 to 1.0.
+ -p|--priority <value>       Set the priority. Valid values range from 0.0 to 1.0.
                              Default is "0.5"
 
-    -f|--frequency <string>: Frequency. Valid values are:
+ -f|--frequency <value>      Set the frequency. Valid values are:
                              always, hourly, daily, weekly, monthly, yearly, never
                              Default is "weekly"
 
-    -i|--index <string>    : Name of index file
-                             Default is "index.php"
+ -i|--index <filename>       Set the name of index file
+                             The default filename is "index.php"
 
-    -d|--docroot <path>    : Doc Root
+ -d|--docroot <path>         Set dhe "Doc Root"
 
-    -a|--accepted <ext>    : Comma-separated list of accepted extensions.
+ -a|--accepted <list>        Comma-separated list of accepted extensions.
                              Default is "php,html"
 
-    -4                     : Add inet4-only to wget (connect only to IPv4 addresses).
+ -o|--output-file <filename> Set the name of the geneated sitemap file.
+                             The default file name is sitemap.xml.
 
-    -6                     : Add inet6-only to wget (connect only to IPv4 addresses).
+ -6                          Set the inet6-only to wget.
+                             Connect only to IPv6 addresses.
 
-    -v|--version           : Print version
+ -v|--version                Print version
 
-    -h|--help              : Print this help and exit
+ -h|--help                   Print this help and exit
 
 EOF
 }
@@ -126,6 +129,66 @@ function check_freq() {
   else
     err "Valid values for 'frequency' are always, hourly, daily, weekly, monthly, yearly or never."
   fi
+}
+
+
+# Make <url>
+function makeurl() {
+
+  PRIORITY="${PRIORITY_DEFAULT:-$DEFAULT_PRIORITY}"
+  FREQ="${FREQ_DEFAULT:-$DEFAULT_FREQ}"
+
+  if [ -n "${DOCROOT:-""}" ]; then
+    FILE=$(echo "$1" | sed 's|/$||' | sed "s|${LOCALURL%/}|$DOCROOT|")
+
+    if [ -d "$FILE" ]; then
+      FILENAME="${INDEX_FILE:-$DEFAULT_INDEX}"
+      FILE="${FILE}"/"$FILENAME"
+    else
+      FILENAME=$(basename "$FILE")
+    fi
+
+    if [ -f "$FILE" ]; then
+      LASTMOD=$(date -r "$FILE" +%F)
+    else
+      # Show a error but not exit.
+      echo -e "\n  [$(date +'%Y-%m-%d %H:%M:%S %z')]: FILE $FILE not exists. Check parameters"
+    fi
+  fi
+
+  if [ -z "${LOCALURL:-""}" ] || [ -z "${REMOTEURL:-""}" ]; then
+    REMOTEFILE="$1"
+  else
+    REMOTEFILE=${1/$URLSCAN/$REMOTEURL/}
+  fi
+
+  # This work for me.
+  # Begin
+  if [[ $1 = */ ]]; then
+    PRIORITY="1"
+    FREQ=daily
+  elif [[ $1 = *legal* ]]; then
+    PRIORITY="0.1"
+    FREQ=monthly
+  elif [[ $1 = *privacy* ]]; then
+    PRIORITY="0.1"
+    FREQ=monthly
+  elif [[ $1 = *cookie* ]]; then
+    PRIORITY="0.1"
+    FREQ=monthly
+  fi
+  # End
+
+
+  echo "Add $REMOTEFILE"
+  {
+    echo "<url>"
+    echo "  <loc>$REMOTEFILE</loc>"
+    [[ -z ${DOCROOT:-""} ]] || echo "  <LASTMOD>$LASTMOD</LASTMOD>"
+    echo "  <changefreq>$FREQ</changefreq>"
+    echo "  <priority>$PRIORITY</priority>"
+    echo "</url>"
+  } >> "$OUTPUT_FILE"
 }
 
 # Read parameters
@@ -166,7 +229,7 @@ while test $# -gt 0; do
       shift
       ;;
     --frequency=*)
-       check_freq "${1##--frequency=}"
+      check_freq "${1##--frequency=}"
       ;;
     -f*)
       check_freq "${1##-f}"
@@ -180,6 +243,17 @@ while test $# -gt 0; do
       ;;
     -i*)
       INDEX_FILE="${1#-i}"
+      ;;
+
+    -o|--output-file)
+      test $# -lt 2 && err "Missing value for the optional argument '$1'." || OUTPUT_FILE="$2"
+      shift
+      ;;
+    --output-file=*)
+      OUTPUT_FILE="${1##--output=}"
+      ;;
+    -o*)
+      OUTPUT_FILE="${1#-o}"
       ;;
     -d|--docroot)
       test $# -lt 2 && err "Missing value for the optional argument '$1'." || DOCROOT="$2"
@@ -202,11 +276,8 @@ while test $# -gt 0; do
     -a*)
       ACCEPTED_EXT="${1##-a}"
       ;;
-    -4)
-      IPV4="-4"
-      ;;
     -6)
-      IPV6="-6"
+      IPV="-6"
       ;;
     -h|--help)
       help
@@ -231,9 +302,16 @@ while test $# -gt 0; do
   shift
 done
 
-
-if [ ${IPV4:-""} == '-4' ] && [ ${IPV6:-""} == '-6' ]; then
-  err "Cannot specify both -4 and -6."
+# Check if at least one of A and B is present.
+# If so, set the URLSCAN variable based on the parameters passed.
+if [ -z "${LOCALURL:-""}" ] && [ -z "${REMOTEURL:-""}" ]; then
+  err "$(basename "$0") requires -r or -l."
+elif [ -z "${LOCALURL:-""}" ]; then
+  URLSCAN="$REMOTEURL"
+elif [ "${LOCALURL: -1}" != "/" ] ; then
+  URLSCAN="${LOCALURL}/"
+else
+  URLSCAN="${LOCALURL}"
 fi
 
 # Check accepted extensions
@@ -246,92 +324,20 @@ else
 fi
 
 # Set default value of the variables
-indexfile="${INDEX_FILE:-$DEFAULT_INDEX}"
-
-# Check if at least one of A and B is present.
-# If so, set the URLSCAN variable based on the parameters passed.
-if [ -z "${LOCALURL:-""}" ] && [ -z "${REMOTEURL:-""}" ]; then
-  err "$(basename "$0") requires -r or -l."
-  help
-  exit 1
-elif [ -z "${LOCALURL:-""}" ]; then
-  URLSCAN="$REMOTEURL"
-elif [ "${LOCALURL: -1}" != "/" ] ; then
-  URLSCAN="${LOCALURL}/"
-else
-  URLSCAN="${LOCALURL}"
-fi
-
-# Make <url>
-function makeurl() {
-
-  priority="${PRIORITY_DEFAULT:-$DEFAULT_PRIORITY}"
-  freq="${FREQ_DEFAULT:-$DEFAULT_FREQ}"
-
-  if [ -n "${DOCROOT:-""}" ]; then
-    FILE=$(echo "$1" | sed 's|/$||' | sed "s|${LOCALURL%/}|$DOCROOT|")
-    FILENAME=$(basename "$FILE")
-
-    if [ -d "$FILE" ]; then
-      FILENAME="$indexfile"
-      FILE="${FILE}"/"$FILENAME"
-    fi
-    if [ -f "$FILE" ]; then
-      lastmod=$(date -r "$FILE" +%F)
-    else
-      # Show a error but not exit.
-      err "FILE $FILE not exists. Check parameters"
-    fi
-  fi
-
-  if [ -z "${LOCALURL:-""}" ] || [ -z "${REMOTEURL:-""}" ]; then
-    remotefile="$1"
-  else
-    remotefile=${1/$URLSCAN/$REMOTEURL/}
-  fi
-
-  # This work for me.
-  # Begin
-  if [[ $1 = */ ]]; then
-    priority="1"
-    freq=daily
-  elif [[ $1 = *legal* ]]; then
-    priority="0.1"
-    freq=monthly
-  elif [[ $1 = *privacy* ]]; then
-    priority="0.1"
-    freq=monthly
-  elif [[ $1 = *cookie* ]]; then
-    priority="0.1"
-    freq=monthly
-  fi
-  # End
-
-
-  echo "Add $remotefile"
-  {
-    echo "<url>"
-    echo "  <loc>$remotefile</loc>"
-    [[ -z ${DOCROOT:-""} ]] || echo "  <lastmod>$lastmod</lastmod>"
-    echo "  <changefreq>$freq</changefreq>"
-    echo "  <priority>$priority</priority>"
-    echo "</url>"
-  } >> sitemap.xml
-}
+OUTPUT_FILE="${OUTPUT_FILE:-$DEFAULT_OUTPUT}"
 
 # Crawler
 echo "Scan: $URLSCAN"
-SORTFILE=sort.txt
 
-wget --spider -r -nd -l inf --no-verbose --no-check-certificate -np -A "$ACCEPTED_EXT" "$URLSCAN" "${IPV4:-""}" "${IPV6:-""}" 2>&1 \
+wget --spider -r -nd -l inf --no-verbose --no-check-certificate -np -A "$ACCEPTED_EXT" "${IPV:-"$DEFAULT_IPV"}" "${URLSCAN}" 2>&1 \
 | grep -i URL | awk -F 'URL:' '{print $2}' | cut -d" " -f1 | sort -u > "$SORTFILE"
 
-if ! [ -s $SORTFILE ]; then
-  err "Error in wget. Check parameters."
+if ! [ -s "$SORTFILE" ]; then
+  err "Error in wget. Check parameters, network, web server or other."
 fi
 
 # Create XML file
-cat << EOF > sitemap.xml
+cat << EOF > "$OUTPUT_FILE"
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -348,12 +354,12 @@ for i in $(echo "$ACCEPTED_EXT" | tr , " "); do
 done
 
 # Read SORTFILE and call makeurl
-while read -r filelist; do
-  eval "case \"$filelist\" in
-	  robots.txt )
+while read -r FILELIST; do
+  eval "case \"$FILELIST\" in
+          robots.txt )
             ;;
           $ACC_EXT)
-            makeurl \"$filelist\"
+            makeurl \"$FILELIST\"
             ;;
           *)
             ;;
@@ -361,10 +367,10 @@ while read -r filelist; do
 done < "$SORTFILE"
 
 # Close xml file
-echo "</urlset>" >> sitemap.xml
+echo "</urlset>" >> "$OUTPUT_FILE"
 
-# Compress sitemap.xml
-gzip -9 -f sitemap.xml -c > sitemap.xml.gz || { err "Failed to zipper sitemap"; exit 1; }
+# Compress output file (default sitemap.xml)
+gzip -9 -f "$OUTPUT_FILE" -c > "${OUTPUT_FILE}".gz || { err "Failed to zipper sitemap"; }
 
 # Delete temporary files
-rm "$SORTFILE" || { err "Failed to remove temporary files"; exit 1; }
+rm "$SORTFILE" || { err "Failed to remove temporary files"; }
