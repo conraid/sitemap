@@ -1,5 +1,11 @@
 = Changelog
 
+== 0.6 ==
+
+- Added verbose ouput option
+- Added rejected extensions option
+- Added debug option
+
 == 0.5.1 ==
 
 - Fixed error in xml tag introduced in the previous version. I'm sorry.

@@ -1,4 +1,4 @@
-# Sitemap.sh
+# Sitemap-generator.sh
 
 Sitemap xml generator
 
@@ -11,36 +11,51 @@ It does not follow links to other web sites or parent directory.
 
   Usage:
 
-     $ sitemap.sh -l <url> [-r <url>]"
+     $ sitemap-generator.sh [-r|--remote <url>] [-l|--locale <url>] [-p|--priority <number>] [-f|--frequency <string>] [-i|--index <string>] [-d|--docroot <path>] [-A|--accept <list>] [-R|-reject <list>] [-o|--output-file] [-6] [-h|--help] [-v|--version] [-vv|--verbose|--debug]
 
   Example:
 
-     $ sitemap.sh -l http://example.home.local/foobar/index.php -r https://example.com -d /home/html/foobar -p 0.8 -f daily
+     $ sitemap-generator.sh -l https://localhost/foobar/ -r https://example.com -d /home/html/foobar -p 0.8 -f daily
 
   Options:
 
-    -r|--remote <url>      : Remote domain
+    -r|--remote <url>           Set the remote URL.
 
-    -l|--local <url>       : Local domain (ex. http://example.home.local/foobar/index.php)
+    -l|--local <url>            Set the local URL (ex. http://localhost/foobar/ )
+                                Not with filename (ex. http://localhost/foo/bar.php)
 
-    -p|--priority <number> : Priority. Valid values range from 0.0 to 1.0.
-                             Default is "0.5"
+    -p|--priority <value>       Set the priority. Valid values range from 0.0 to 1.0.
+                                Default is "0.5".
 
-    -f|--frequency <string>: Frequency. Valid values are:
-                             always, hourly, daily, weekly, monthly, yearly, never
-                             Default is "weekly"
+    -f|--frequency <value>      Set the frequency. Valid values are:
+                                always, hourly, daily, weekly, monthly, yearly, never
+                                Default is "weekly".
 
-    -i|--index <string>    : Name of index file
-                             Default is "index.php"
+    -i|--index <filename>       Set the name of index file.
+                                The default filename is "index.php".
 
-    -d|--docroot <path>    : Doc Root
+    -d|--docroot <path>         Set dhe "Doc Root".
 
-    -a|--accepted <ext>    : Comma-separated list of accepted extensions.
-                             Default is "php,html"
+    -A|--accept <list>          Comma-separated list of accepted extensions.
+                                Default is all.
 
-    -v|--version           : Print version
+    -R|--reject <list>          Comma-separated list of rejected extensions.
+                                Default is nothing.
 
-    -h|--help              : Print this help and exit
+    -o|--output-file <filename> Set the name of the geneated sitemap file.
+                                The default file name is sitemap.xml.
+
+    -6                          Set the inet6-only to wget.
+                                Connect only to IPv6 addresses.
+
+    -vv|--verbose               Print details when crawling with wget.
+
+    --debug                     Set bash to debug mode (-x)
+
+    -v|--version                Print version.
+
+    -h|--help                   Print this help and exit.
+
 
 ## Installation
 

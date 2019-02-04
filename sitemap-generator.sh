@@ -30,20 +30,25 @@
 # If you need a generic and/or better sitemap generator try one of this
 # https://code.google.com/archive/p/sitemap-generators/wikis/SitemapGenerators.wiki
 
-VERSION=0.5.1
+VERSION=0.6
 
 # Exit on error and undeclared variables
 set -eu
 
 # THE DEFAULT INITIALIZATIONS - OPTIONALS
-DEFAULT_EXT="php,html"
 DEFAULT_INDEX="index.php"
 DEFAULT_PRIORITY="0.5"
 DEFAULT_FREQ="weekly"
-DEFAULT_IPV="-4"
 DEFAULT_OUTPUT="sitemap.xml"
 
-SORTFILE=$(mktemp) || { echo "Failed to create temp file"; exit 1; }
+LISTFILE=$(mktemp) || { echo "Failed to create LIST temp file"; exit 1; }
+SORTFILE=$(mktemp) || { echo "Failed to create SORT temp file"; exit 1; }
+
+WGET="/usr/bin/wget" # Path of wget
+TEE="/usr/bin/tee" # Path of tee, for redirect output to console and to file
+
+# Wget options
+WGET_OPTIONS="--spider -r -nd -l inf --no-verbose --no-check-certificate -np"
 
 # Not Root. And not sudo please ;)
 if [[ "$EUID" = 0 ]]; then
@@ -73,32 +78,35 @@ function  help() {
 cat << EOF
 
 Usage:
-  $(basename "$0") [-r|--remote <url>] [-l|--locale <url>] [-p|--priority <number>] [-f|--frequency <string>] [-i|--index <string>] [-d|--docroot <path>] [-a|--accepted <ext>] [-o|--output-file] [-6] [-h|--help] [-v|--version]
+  $(basename "$0") [-r|--remote <url>] [-l|--locale <url>] [-p|--priority <number>] [-f|--frequency <string>] [-i|--index <string>] [-d|--docroot <path>] [-A|--accept <list>] [-R|-reject <list>] [-o|--output-file] [-6] [-h|--help] [-v|--version] [-vv|--verbose] [--debug]
 
 
 Example:
   $(basename "$0") -l https://localhost/foobar/ -r https://example.com -d /home/html/foobar -p 0.8 -f daily
 
 Options:
- -r|--remote <url>           Set the remote URL
+ -r|--remote <url>           Set the remote URL.
 
  -l|--local <url>            Set the local URL (ex. http://localhost/foobar/ )
                              Not with filename (ex. http://localhost/foo/bar.php)
 
  -p|--priority <value>       Set the priority. Valid values range from 0.0 to 1.0.
-                             Default is "0.5"
+                             Default is "0.5".
 
  -f|--frequency <value>      Set the frequency. Valid values are:
                              always, hourly, daily, weekly, monthly, yearly, never
-                             Default is "weekly"
+                             Default is "weekly".
 
- -i|--index <filename>       Set the name of index file
-                             The default filename is "index.php"
+ -i|--index <filename>       Set the name of index file.
+                             The default filename is "index.php".
 
- -d|--docroot <path>         Set dhe "Doc Root"
+ -d|--docroot <path>         Set dhe "Doc Root".
 
- -a|--accepted <list>        Comma-separated list of accepted extensions.
-                             Default is "php,html"
+ -A|--accept <list>          Comma-separated list of accepted extensions.
+                             Default is all.
+
+ -R|--reject <list>          Comma-separated list of rejected extensions.
+                             Default is nothing.
 
  -o|--output-file <filename> Set the name of the geneated sitemap file.
                              The default file name is sitemap.xml.
@@ -106,9 +114,13 @@ Options:
  -6                          Set the inet6-only to wget.
                              Connect only to IPv6 addresses.
 
- -v|--version                Print version
+ -vv|--verbose               Print details when crawling with wget.
 
- -h|--help                   Print this help and exit
+ --debug                     Set bash to debug mode (-x)
+
+ -v|--version                Print version.
+
+ -h|--help                   Print this help and exit.
 
 EOF
 }
@@ -195,7 +207,8 @@ function makeurl() {
 while test $# -gt 0; do
   case "$1" in
     -r|--remote)
-      test $# -lt 2 && err "Missing value for the optional argument '$1'." || REMOTEURL="${2%/}"
+      test $# -lt 2 && err "Missing value for the optional argument '$1'."
+      REMOTEURL="${2%/}"
       shift
       ;;
     --remote=*)
@@ -205,17 +218,19 @@ while test $# -gt 0; do
       REMOTEURL="${1##-r}"
       ;;
     -l|--local)
-      test $# -lt 2 && err "Missing value for the optional argument '$1'." || LOCALURL="$2"
+      test $# -lt 2 && err "Missing value for the optional argument '$1'."
+      LOCALURL="$2"
       shift
       ;;
     --local=*)
-      LOCALURL="${1##--locale=}"
+      LOCALURL="${1##--local=}"
       ;;
     -l*)
       LOCALURL="${1##-l}"
       ;;
     -p|--priority)
-      test $# -lt 2 && err "Missing value for the optional argument '$1'." || check_priority "$2"
+      test $# -lt 2 && err "Missing value for the optional argument '$1'."
+      check_priority "$2"
       shift
       ;;
     --priority=*)
@@ -225,7 +240,8 @@ while test $# -gt 0; do
       check_priority "${1##-p}"
       ;;
     -f|--frequency)
-      test $# -lt 2 && err "Missing value for the optional argument '$1'." || check_freq "$2"
+      test $# -lt 2 && err "Missing value for the optional argument '$1'."
+      check_freq "$2"
       shift
       ;;
     --frequency=*)
@@ -235,7 +251,8 @@ while test $# -gt 0; do
       check_freq "${1##-f}"
       ;;
     -i|--index)
-      test $# -lt 2 && err "Missing value for the optional argument '$1'." || INDEX_FILE="$2"
+      test $# -lt 2 && err "Missing value for the optional argument '$1'."
+      INDEX_FILE="$2"
       shift
       ;;
     --index=*)
@@ -246,7 +263,8 @@ while test $# -gt 0; do
       ;;
 
     -o|--output-file)
-      test $# -lt 2 && err "Missing value for the optional argument '$1'." || OUTPUT_FILE="$2"
+      test $# -lt 2 && err "Missing value for the optional argument '$1'."
+      OUTPUT_FILE="$2"
       shift
       ;;
     --output-file=*)
@@ -256,7 +274,8 @@ while test $# -gt 0; do
       OUTPUT_FILE="${1#-o}"
       ;;
     -d|--docroot)
-      test $# -lt 2 && err "Missing value for the optional argument '$1'." || DOCROOT="$2"
+      test $# -lt 2 && err "Missing value for the optional argument '$1'."
+      DOCROOT="$2"
       shift
       ;;
     --docroot=*)
@@ -265,19 +284,30 @@ while test $# -gt 0; do
     -d*)
       DOCROOT="${1##-d}"
       ;;
-    -a|--accepted)
-      test $# -lt 2 && err "Missing value for the optional argument '$1'." || ACCEPTED_EXT="$2"
-      ACCEPTED_EXT="$2"
+    -A|--accept)
+      test $# -lt 2 && err "Missing value for the optional argument '$1'."
+      ACCEPT_EXT="$2"
       shift
       ;;
-    --accepted=*)
-      ACCEPTED_EXT="${1##--accepted=}"
+    --accept=*)
+      ACCEPT_EXT="${1##--accept=}"
       ;;
-    -a*)
-      ACCEPTED_EXT="${1##-a}"
+    -A*)
+      ACCEPT_EXT="${1##-a}"
+      ;;
+    -R|--reject)
+      test $# -lt 2 && err "Missing value for the optional argument '$1'."
+      REJECT_EXT="$2"
+      shift
+      ;;
+    --reject=*)
+      REJECT_EXT="${1##--reject=}"
+      ;;
+    -R*)
+      REJECT_EXT="${1##-e}"
       ;;
     -6)
-      IPV="-6"
+      WGET_OPTIONS+=" -6"
       ;;
     -h|--help)
       help
@@ -291,9 +321,11 @@ while test $# -gt 0; do
       echo Version: "$VERSION"
       exit 0
       ;;
-    -v*)
-      echo Version: "$VERSION"
-      exit 0
+    -vv|--verbose)
+      VERBOSE=1
+      ;;
+    --debug)
+      set -x
       ;;
     *)
       err "FATAL ERROR: Got an unexpected argument '$1'"
@@ -315,12 +347,21 @@ else
 fi
 
 # Check accepted extensions
-if [[ -z ${ACCEPTED_EXT:-""} ]]; then
-  ACCEPTED_EXT="${ACCEPTED_EXT:-$DEFAULT_EXT}"
-elif [ "${ACCEPTED_EXT: -1}" == "," ] ; then
-  ACCEPTED_EXT="${ACCEPTED_EXT::-1}"
-else
-  ACCEPTED_EXT="${ACCEPTED_EXT//[[:space:]]/}"
+if [ -n "${ACCEPT_EXT:-""}" ]; then
+  if [ "${ACCEPT_EXT: -1}" == "," ] ; then
+    WGET_OPTIONS+=" -A ${ACCEPT_EXT::-1}"
+  else
+    WGET_OPTIONS+=" -A ${ACCEPT_EXT//[[:space:]]/}"
+  fi
+fi
+
+# Check rejected extensions
+if [ -n "${REJECT_EXT:-""}" ]; then
+  if [ "${REJECT_EXT: -1}" == "," ] ; then
+    WGET_OPTIONS+=" -R ${REJECT_EXT::-1}"
+  else
+    WGET_OPTIONS+=" -R ${REJECT_EXT//[[:space:]]/}"
+  fi
 fi
 
 # Set default value of the variables
@@ -329,12 +370,21 @@ OUTPUT_FILE="${OUTPUT_FILE:-$DEFAULT_OUTPUT}"
 # Crawler
 echo "Scan: $URLSCAN"
 
-wget --spider -r -nd -l inf --no-verbose --no-check-certificate -np -A "$ACCEPTED_EXT" "${IPV:-"$DEFAULT_IPV"}" "${URLSCAN}" 2>&1 \
-| grep -i URL | awk -F 'URL:' '{print $2}' | cut -d" " -f1 | sort -u > "$SORTFILE"
+if [ ${VERBOSE:-""} == '1' ]; then
+  # shellcheck disable=SC2086
+  "$WGET" $WGET_OPTIONS "$URLSCAN" 2>&1 | $TEE "$LISTFILE"
+else
+  # shellcheck disable=SC2086
+  "$WGET" $WGET_OPTIONS "$URLSCAN" -o "$LISTFILE" || true
+fi
 
-if ! [ -s "$SORTFILE" ]; then
+# Check wget
+if ! [ -s "$LISTFILE" ]; then
   err "Error in wget. Check parameters, network, web server or other."
 fi
+
+# Select only URL line
+grep -i URL "$LISTFILE" | awk -F 'URL:' '{print $2}' | cut -d" " -f1 | sort -u > "$SORTFILE"
 
 # Create XML file
 cat << EOF > "$OUTPUT_FILE"
@@ -347,23 +397,15 @@ cat << EOF > "$OUTPUT_FILE"
             http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
 EOF
 
-# Modify ACCEPTED_EXT for case statement
-ACC_EXT="*/"
-for i in $(echo "$ACCEPTED_EXT" | tr , " "); do
-  ACC_EXT="$ACC_EXT |*.$i"
-done
-
 # Read SORTFILE and call makeurl
 while read -r FILELIST; do
-  eval "case \"$FILELIST\" in
-          robots.txt )
-            ;;
-          $ACC_EXT)
-            makeurl \"$FILELIST\"
-            ;;
-          *)
-            ;;
-        esac"
+  case "$FILELIST" in
+    *robots.txt )
+      ;;
+    *)
+      makeurl "$FILELIST"
+      ;;
+  esac
 done < "$SORTFILE"
 
 # Close xml file
@@ -373,4 +415,4 @@ echo "</urlset>" >> "$OUTPUT_FILE"
 gzip -9 -f "$OUTPUT_FILE" -c > "${OUTPUT_FILE}".gz || { err "Failed to zipper sitemap"; }
 
 # Delete temporary files
-rm "$SORTFILE" || { err "Failed to remove temporary files"; }
+rm "$SORTFILE" "$LISTFILE" || { err "Failed to remove temporary files"; }
