@@ -1,5 +1,9 @@
 = Changelog
 
+== 0.5.1 ==
+
+- Fixed error in xml tag introduced in the previous version. I'm sorry.
+
 == 0.5 ==
 
 - Set ipv4 as default. Then removed the relative option and left only the one for ipv6.

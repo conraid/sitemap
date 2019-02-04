@@ -30,7 +30,7 @@
 # If you need a generic and/or better sitemap generator try one of this
 # https://code.google.com/archive/p/sitemap-generators/wikis/SitemapGenerators.wiki
 
-VERSION=0.5
+VERSION=0.5.1
 
 # Exit on error and undeclared variables
 set -eu
@@ -184,7 +184,7 @@ function makeurl() {
   {
     echo "<url>"
     echo "  <loc>$REMOTEFILE</loc>"
-    [[ -z ${DOCROOT:-""} ]] || echo "  <LASTMOD>$LASTMOD</LASTMOD>"
+    [[ -z ${DOCROOT:-""} ]] || echo "  <lastmod>$LASTMOD</lastmod>"
     echo "  <changefreq>$FREQ</changefreq>"
     echo "  <priority>$PRIORITY</priority>"
     echo "</url>"
