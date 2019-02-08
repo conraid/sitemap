@@ -1,6 +1,6 @@
 # Sitemap-generator.sh
 
-Sitemap xml generator
+Sitemap xml generator in posix shell.
 
 ## Description
 
@@ -48,6 +48,8 @@ It does not follow links to other web sites or parent directory.
     -6                          Set the inet6-only to wget.
                                 Connect only to IPv6 addresses.
 
+    -ssl|--check-ssl            Check if there are duplicate URLs with http and https.
+
     -vv|--verbose               Print details when crawling with wget.
 
     --debug                     Set bash to debug mode (-x)
@@ -62,6 +64,11 @@ It does not follow links to other web sites or parent directory.
 Simple copy file in $PATH and
 
     $ chmod +x sitemap.sh
+
+## Requirement
+
+This script requires this command: wget, sed, awk, grep, cut and sort.
+Optional: tee (for verbose mode), id or whoami (for root user check).
 
 ## Warnings
 

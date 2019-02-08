@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Copyright 2019 Corrado Franco (http://conraid.net)
 # All rights reserved.
@@ -30,10 +30,13 @@
 # If you need a generic and/or better sitemap generator try one of this
 # https://code.google.com/archive/p/sitemap-generators/wikis/SitemapGenerators.wiki
 
-VERSION=0.6
-
 # Exit on error and undeclared variables
 set -eu
+
+### VARIABLES ###
+
+# Set script version
+VERSION=1.1
 
 # THE DEFAULT INITIALIZATIONS - OPTIONALS
 DEFAULT_INDEX="index.php"
@@ -41,22 +44,40 @@ DEFAULT_PRIORITY="0.5"
 DEFAULT_FREQ="weekly"
 DEFAULT_OUTPUT="sitemap.xml"
 
-LISTFILE=$(mktemp) || { echo "Failed to create LIST temp file"; exit 1; }
-SORTFILE=$(mktemp) || { echo "Failed to create SORT temp file"; exit 1; }
+# Set the bin utility program
+MKTEMP="/usr/bin/mktemp" # Path of mktemp, or another temporary file creator (ex. tempfile).
 
-WGET="/usr/bin/wget" # Path of wget
-TEE="/usr/bin/tee" # Path of tee, for redirect output to console and to file
-
-# Wget options
+# Set the default wget options
 WGET_OPTIONS="--spider -r -nd -l inf --no-verbose --no-check-certificate -np"
 
-# Not Root. And not sudo please ;)
-if [[ "$EUID" = 0 ]]; then
-  err "This script should not be run as root" 1>&2
+### FUNCTIONS ###
+
+# Print error in STDERR
+err() {
+  echo
+  echo " [$(date +'%Y-%m-%d %H:%M:%S %z')]:" "$@" >&2
+  echo
+  exit 1
+}
+
+# Check root user
+check_root() {
+if [ -x "$(command -v id)" ]; then
+  if test "$(id -u)" = "0"; then
+    err "This script should not be run as root"
+  fi
+elif [ -x "$(command -v whoami)" ]; then
+  if test "$(whoami)" = "whoami"; then
+    err "This script should not be run as root"
+  fi
+else
+  echo "Unable to determine if the script is run with the root user, consider whether to continue or not."
+  sleep 10
 fi
+}
 
 # Show script description
-function info() {
+info() {
 cat << EOF
   This script crawls a web site from a given starting local URL or
   remote URL and generates a Sitemap file in the format that is
@@ -67,18 +88,18 @@ EOF
 help
 }
 
-# Print error in STDERR
-function err() {
-  echo -e "\n  [$(date +'%Y-%m-%d %H:%M:%S %z')]:" "$@" "\n" >&2
-  exit 1
+check_program() {
+  if ! [ -x "$(command -v "$1")" ]; then
+      err "'$(basename "$1")' it's not present in path"
+  fi
 }
 
 # Show help usate
-function  help() {
+ help() {
 cat << EOF
 
 Usage:
-  $(basename "$0") [-r|--remote <url>] [-l|--locale <url>] [-p|--priority <number>] [-f|--frequency <string>] [-i|--index <string>] [-d|--docroot <path>] [-A|--accept <list>] [-R|-reject <list>] [-o|--output-file] [-6] [-h|--help] [-v|--version] [-vv|--verbose] [--debug]
+  $(basename "$0") [-r|--remote <url>] [-l|--locale <url>] [-p|--priority <number>] [-f|--frequency <string>] [-i|--index <string>] [-d|--docroot <path>] [-A|--accept <list>] [-R|-reject <list>] [-o|--output-file] [-6] [-ssl|--check-ssl] [-h|--help] [-V|--version] [-vv|--verbose] [--debug]
 
 
 Example:
@@ -114,6 +135,9 @@ Options:
  -6                          Set the inet6-only to wget.
                              Connect only to IPv6 addresses.
 
+ -ssl|--check-ssl            Check if there are duplicate URLs with http and https.
+                             Useful when there is a redirect "http to https" in .htaccess for example.
+
  -vv|--verbose               Print details when crawling with wget.
 
  --debug                     Set bash to debug mode (-x)
@@ -126,8 +150,8 @@ EOF
 }
 
 # Check priority parameter
-function check_priority() {
-  if echo "$1" | grep -q "^0.[1-9]$" || [ "$1" == '1.0' ] ; then
+check_priority() {
+  if echo "$1" | grep -q "^0.[1-9]$" || [ "$1" = '1.0' ] ; then
     PRIORITY_DEFAULT="$1"
   else
     err "Valid values for 'priority' range from 0.0 to 1.0."
@@ -135,8 +159,8 @@ function check_priority() {
 }
 
 # Check frequency parameter
-function check_freq() {
-  if [ "$1" == "always" ] || [ "$1" == "hourly" ]  || [ "$1" == "daily" ] || [ "$1" == "weekly" ] || [ "$1" == "monthly" ] || [ "$1" == "yearly" ] || [ "$1" == "never" ]; then
+check_freq() {
+  if [ "$1" = "always" ] || [ "$1" = "hourly" ]  || [ "$1" = "daily" ] || [ "$1" = "weekly" ] || [ "$1" = "monthly" ] || [ "$1" = "yearly" ] || [ "$1" = "never" ]; then
     FREQ_DEFAULT="$1"
   else
     err "Valid values for 'frequency' are always, hourly, daily, weekly, monthly, yearly or never."
@@ -145,63 +169,87 @@ function check_freq() {
 
 
 # Make <url>
-function makeurl() {
+makeurl() {
 
-  PRIORITY="${PRIORITY_DEFAULT:-$DEFAULT_PRIORITY}"
-  FREQ="${FREQ_DEFAULT:-$DEFAULT_FREQ}"
-
-  if [ -n "${DOCROOT:-""}" ]; then
-    FILE=$(echo "$1" | sed 's|/$||' | sed "s|${LOCALURL%/}|$DOCROOT|")
-
-    if [ -d "$FILE" ]; then
-      FILENAME="${INDEX_FILE:-$DEFAULT_INDEX}"
-      FILE="${FILE}"/"$FILENAME"
-    else
-      FILENAME=$(basename "$FILE")
-    fi
-
-    if [ -f "$FILE" ]; then
-      LASTMOD=$(date -r "$FILE" +%F)
-    else
-      # Show a error but not exit.
-      echo -e "\n  [$(date +'%Y-%m-%d %H:%M:%S %z')]: FILE $FILE not exists. Check parameters"
-    fi
-  fi
-
-  if [ -z "${LOCALURL:-""}" ] || [ -z "${REMOTEURL:-""}" ]; then
-    REMOTEFILE="$1"
+  # Remove protocol is present check_ssl option.
+  if [ "${CHECK_SSL:-""}" = '1' ]; then
+    URL=$(echo "$1" | sed 's|.*://||')
   else
-    REMOTEFILE=${1/$URLSCAN/$REMOTEURL/}
+    URL="$1"
   fi
 
-  # This work for me.
-  # Begin
-  if [[ $1 = */ ]]; then
-    PRIORITY="1"
-    FREQ=daily
-  elif [[ $1 = *legal* ]]; then
-    PRIORITY="0.1"
-    FREQ=monthly
-  elif [[ $1 = *privacy* ]]; then
-    PRIORITY="0.1"
-    FREQ=monthly
-  elif [[ $1 = *cookie* ]]; then
-    PRIORITY="0.1"
-    FREQ=monthly
+  # Check if $URL it's present in sitemap xml file.
+  if ! grep -Fq "$URL</loc>" "$OUTPUT_FILE"; then
+
+    PRIORITY="${PRIORITY_DEFAULT:-$DEFAULT_PRIORITY}"
+    FREQ="${FREQ_DEFAULT:-$DEFAULT_FREQ}"
+
+    if [ -n "${DOCROOT:-""}" ]; then
+      if [ "$(echo "$DOCROOT" | awk '{print substr($0,length,1)}')" != "/" ] ; then
+	      DOCROOT="${DOCROOT}/"
+      fi
+      FILE=$(echo "$1" | sed "s|${LOCALURL}|$DOCROOT|")
+
+      if [ -d "$FILE" ]; then
+	      FILE="${FILE}"/"${INDEX_FILE:-$DEFAULT_INDEX}"
+      fi
+
+      if [ -f "$FILE" ]; then
+	      LASTMOD=$(date -r "$FILE" +%F)
+      else
+	      # Show a error but not exit.
+	      echo "FILE $FILE not exists. Check parameters"
+      fi
+    fi
+
+    if [ -z "${LOCALURL:-""}" ] || [ -z "${REMOTEURL:-""}" ]; then
+      REMOTEFILE="$1"
+    else
+      REMOTEFILE=$(echo "$1" | sed "s|$URLSCAN|$REMOTEURL/|")
+    fi
+
+    # This works for me.
+    # If you don't need this feature and you want to leave only the default values, comment this part.
+    # Begin
+    case "$1" in
+      */ )
+	      PRIORITY="1"
+	      FREQ=daily
+	      ;;
+      *legal*|*privacy*|*cookie* )
+	      PRIORITY="0.2"
+	      FREQ=monthly
+	      ;;
+    esac
+    # End
+
+
+    echo "Add $REMOTEFILE"
+    {
+      echo "<url>"
+      echo "  <loc>$REMOTEFILE</loc>"
+      if [ "${LASTMOD:-""}" ]; then echo "  <lastmod>$LASTMOD</lastmod>"; fi
+      echo "  <changefreq>$FREQ</changefreq>"
+      echo "  <priority>$PRIORITY</priority>"
+      echo "</url>"
+    } >> "$OUTPUT_FILE"
+
   fi
-  # End
-
-
-  echo "Add $REMOTEFILE"
-  {
-    echo "<url>"
-    echo "  <loc>$REMOTEFILE</loc>"
-    [[ -z ${DOCROOT:-""} ]] || echo "  <lastmod>$LASTMOD</lastmod>"
-    echo "  <changefreq>$FREQ</changefreq>"
-    echo "  <priority>$PRIORITY</priority>"
-    echo "</url>"
-  } >> "$OUTPUT_FILE"
 }
+
+### MAIN PROGRAM ###
+
+# Not Root. And not sudo please ;)
+check_root
+
+# Check id exists utility programs
+check_program sed
+check_program awk
+check_program wget
+check_program grep
+check_program cut
+check_program sort
+check_program $MKTEMP
 
 # Read parameters
 while test $# -gt 0; do
@@ -261,7 +309,6 @@ while test $# -gt 0; do
     -i*)
       INDEX_FILE="${1#-i}"
       ;;
-
     -o|--output-file)
       test $# -lt 2 && err "Missing value for the optional argument '$1'."
       OUTPUT_FILE="$2"
@@ -307,7 +354,10 @@ while test $# -gt 0; do
       REJECT_EXT="${1##-e}"
       ;;
     -6)
-      WGET_OPTIONS+=" -6"
+      WGET_OPTIONS="$WGET_OPTIONS -6"
+      ;;
+    -ssl|--check-ssl)
+      CHECK_SSL=1
       ;;
     -h|--help)
       help
@@ -317,7 +367,7 @@ while test $# -gt 0; do
       help
       exit 0
       ;;
-    -v|--version)
+    -V|--version)
       echo Version: "$VERSION"
       exit 0
       ;;
@@ -326,9 +376,10 @@ while test $# -gt 0; do
       ;;
     --debug)
       set -x
+      DEBUG=1
       ;;
     *)
-      err "FATAL ERROR: Got an unexpected argument '$1'"
+      err "FATAL ERROR: Got an unexpected argument '$1'. Use -h for help."
       ;;
   esac
   shift
@@ -337,54 +388,61 @@ done
 # Check if at least one of A and B is present.
 # If so, set the URLSCAN variable based on the parameters passed.
 if [ -z "${LOCALURL:-""}" ] && [ -z "${REMOTEURL:-""}" ]; then
-  err "$(basename "$0") requires -r or -l."
+  err "$(basename "$0") requires -r or -l. Use -h for help"
 elif [ -z "${LOCALURL:-""}" ]; then
   URLSCAN="$REMOTEURL"
-elif [ "${LOCALURL: -1}" != "/" ] ; then
-  URLSCAN="${LOCALURL}/"
+elif [ "$(echo "$LOCALURL" | awk '{print substr($0,length,1)}')" != "/" ] ; then
+  LOCALURL="${LOCALURL}/"
+  URLSCAN="${LOCALURL}"
 else
   URLSCAN="${LOCALURL}"
 fi
 
 # Check accepted extensions
 if [ -n "${ACCEPT_EXT:-""}" ]; then
-  if [ "${ACCEPT_EXT: -1}" == "," ] ; then
-    WGET_OPTIONS+=" -A ${ACCEPT_EXT::-1}"
+  if [ "$(echo "$ACCEPT_EXT" | awk '{print substr($0,length,1)}')" = "," ] ; then
+    WGET_OPTIONS="$WGET_OPTIONS -A $(echo "$ACCEPT_EXT" | sed 's/,$//')"
   else
-    WGET_OPTIONS+=" -A ${ACCEPT_EXT//[[:space:]]/}"
+    WGET_OPTIONS="$WGET_OPTIONS -A $(echo "$ACCEPT_EXT" | tr -d " ")"
   fi
 fi
+
 
 # Check rejected extensions
 if [ -n "${REJECT_EXT:-""}" ]; then
-  if [ "${REJECT_EXT: -1}" == "," ] ; then
-    WGET_OPTIONS+=" -R ${REJECT_EXT::-1}"
+  if [ "$(echo "$REJECT_EXT" | awk '{print substr($0,length,1)}')" = "," ] ; then
+    WGET_OPTIONS="$WGET_OPTIONS -R $(echo "$REJECT_EXT" | sed 's/,$//')"
   else
-    WGET_OPTIONS+=" -R ${REJECT_EXT//[[:space:]]/}"
+    WGET_OPTIONS="$WGET_OPTIONS -R $(echo "$REJECT_EXT" | tr -d " ")"
   fi
 fi
 
-# Set default value of the variables
+# Set files
 OUTPUT_FILE="${OUTPUT_FILE:-$DEFAULT_OUTPUT}"
+LISTFILE=$($MKTEMP) || { err "Failed to create LIST temp file. $MKTEMP exists and/or /tmp is writable?"; }
+SORTFILE=$($MKTEMP) || { err "Failed to create SORT temp file. $MKTEMP exists and/or /tmp is writable?"; }
 
 # Crawler
 echo "Scan: $URLSCAN"
 
-if [ ${VERBOSE:-""} == '1' ]; then
+if [ ${VERBOSE:-""} = '1' ]; then
+  if ! [ -x "$(command -v tee)" ]; then
+    err "Verbose mode is possible only with command 'tee' in path"
+  fi
   # shellcheck disable=SC2086
-  "$WGET" $WGET_OPTIONS "$URLSCAN" 2>&1 | $TEE "$LISTFILE"
+  wget $WGET_OPTIONS "$URLSCAN" 2>&1 | tee "$LISTFILE"
 else
   # shellcheck disable=SC2086
-  "$WGET" $WGET_OPTIONS "$URLSCAN" -o "$LISTFILE" || true
+  wget $WGET_OPTIONS "$URLSCAN" -o "$LISTFILE" || true
 fi
 
-# Check wget
+# Check if wget creates listfile
 if ! [ -s "$LISTFILE" ]; then
   err "Error in wget. Check parameters, network, web server or other."
 fi
 
 # Select only URL line
-grep -i URL "$LISTFILE" | awk -F 'URL:' '{print $2}' | cut -d" " -f1 | sort -u > "$SORTFILE"
+grep -i URL "$LISTFILE" | sed 's/URL: /URL:/' | awk -F 'URL:' '{print $2}' | cut -d" " -f1 | sed '/^$/d' | sort -u > "$SORTFILE"
 
 # Create XML file
 cat << EOF > "$OUTPUT_FILE"
@@ -402,11 +460,19 @@ while read -r FILELIST; do
   case "$FILELIST" in
     *robots.txt )
       ;;
+    *.jpg|*.gif|*.jpeg|*.ico|*.png|*.svg|*.webp )
+      #makeurl "$FILELIST" # This works for me, if you need to insert this type of file too, uncomment the line.
+      ;;
+    *.js|*.css )
+      #makeurl "$FILELIST" # This works for me, if you need to insert this type of file too, uncomment the line.
+      ;;
     *)
       makeurl "$FILELIST"
       ;;
   esac
 done < "$SORTFILE"
+
+
 
 # Close xml file
 echo "</urlset>" >> "$OUTPUT_FILE"
@@ -415,4 +481,6 @@ echo "</urlset>" >> "$OUTPUT_FILE"
 gzip -9 -f "$OUTPUT_FILE" -c > "${OUTPUT_FILE}".gz || { err "Failed to zipper sitemap"; }
 
 # Delete temporary files
-rm "$SORTFILE" "$LISTFILE" || { err "Failed to remove temporary files"; }
+if [ -z ${DEBUG:-""} ]; then
+  rm "$SORTFILE" "$LISTFILE" || { err "Failed to remove temporary files"; }
+fi

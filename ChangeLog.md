@@ -1,5 +1,16 @@
 = Changelog
 
+== 1.1 ==
+
+- Added check of duplicate entries. Although in theory it was already present thanks to the "sort -u" command.
+- Added check-ssl option to consider duplicate files with the same filename but http or https protocol.
+
+== 1.0 ==
+
+- Ported to posix shells.
+  Checked with shellcheck and tested with bash, zsh, csh, ksh, tcsh, dash.
+- Added variable for mktemp (you can choose to use tempfile for example).
+
 == 0.6 ==
 
 - Added verbose ouput option
@@ -12,7 +23,8 @@
 
 == 0.5 ==
 
-- Set ipv4 as default. Then removed the relative option and left only the one for ipv6.
+- Set ipv4 as default.
+  Then removed the relative option and left only the one for ipv6.
 - Added sitemap filename option
 - Some cosmetic changes
 
