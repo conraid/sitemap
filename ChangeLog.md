@@ -1,5 +1,10 @@
 = Changelog
 
+== 1.2 ==
+
+- Added fonts to exclusion list
+- Added privacy and cookie page to exclusion list
+
 == 1.1 ==
 
 - Added check of duplicate entries. Although in theory it was already present thanks to the "sort -u" command.

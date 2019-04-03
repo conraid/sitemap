@@ -36,7 +36,7 @@ set -eu
 ### VARIABLES ###
 
 # Set script version
-VERSION=1.1
+VERSION=1.2
 
 # THE DEFAULT INITIALIZATIONS - OPTIONALS
 DEFAULT_INDEX="index.php"
@@ -198,6 +198,7 @@ makeurl() {
 	      LASTMOD=$(date -r "$FILE" +%F)
       else
 	      # Show a error but not exit.
+	      LASTMOD=""
 	      echo "FILE $FILE not exists. Check parameters"
       fi
     fi
@@ -419,8 +420,8 @@ fi
 
 # Set files
 OUTPUT_FILE="${OUTPUT_FILE:-$DEFAULT_OUTPUT}"
-LISTFILE=$($MKTEMP) || { err "Failed to create LIST temp file. $MKTEMP exists and/or /tmp is writable?"; }
-SORTFILE=$($MKTEMP) || { err "Failed to create SORT temp file. $MKTEMP exists and/or /tmp is writable?"; }
+LISTFILE=$($MKTEMP --suffix=-list) || { err "Failed to create LIST temp file. $MKTEMP exists and/or /tmp is writable?"; }
+SORTFILE=$($MKTEMP --suffix=-sort) || { err "Failed to create SORT temp file. $MKTEMP exists and/or /tmp is writable?"; }
 
 # Crawler
 echo "Scan: $URLSCAN"
@@ -458,12 +459,18 @@ EOF
 # Read SORTFILE and call makeurl
 while read -r FILELIST; do
   case "$FILELIST" in
-    *robots.txt )
+    *robots*|*\.txt )
       ;;
-    *.jpg|*.gif|*.jpeg|*.ico|*.png|*.svg|*.webp )
+    *privacy*|*cookie*)
       #makeurl "$FILELIST" # This works for me, if you need to insert this type of file too, uncomment the line.
       ;;
-    *.js|*.css )
+    *\.jpg|*\.gif*|*\.jpeg*|*\.ico*|*\.png*|*\.svg*|*\.webp* )
+      #makeurl "$FILELIST" # This works for me, if you need to insert this type of file too, uncomment the line.
+      ;;
+    *\.eot*|*\.ttf*|*\.woff*|*\.woff2*|*\.otf* )
+      #makeurl "$FILELIST" # This works for me, if you need to insert this type of file too, uncomment the line.
+      ;;
+    *\.js*|*\.css*|*\.min\.* )
       #makeurl "$FILELIST" # This works for me, if you need to insert this type of file too, uncomment the line.
       ;;
     *)
