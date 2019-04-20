@@ -60,9 +60,7 @@ GREEN_END="\\033[0;39m"
 
 # Print error in STDERR
 err() {
-  echo
-  echo -e " [$(date +'%Y-%m-%d %H:%M:%S %z')]:"  $RED_BEGIN "$@" $RED_END >&2
-  echo
+  printf "\n [$(date +'%Y-%m-%d %H:%M:%S %z')]: %b %s %b \n\n" "$RED_BEGIN" "$*" "$RED_END" >&2
   exit 1
 }
 
@@ -205,7 +203,7 @@ makeurl() {
       else
 	      # Show a error but not exit.
 	      LASTMOD=""
-	      echo -e "$RED_BEGIN FILE $FILE not exists $RED_END. Check parameters"
+	      printf "\n %b FILE %s not exists %b Check parameters. \n\n" "$RED_BEGIN" "$FILE" "$RED_END"
       fi
     fi
 
@@ -231,7 +229,7 @@ makeurl() {
     # End
 
 
-    echo -e "$GREEN_BEGIN Add $REMOTEFILE $GREEN_END"
+    printf "\n %b Add %s %b \n\n" "$GREEN_BEGIN" "$REMOTEFILE" "$GREEN_END"
     {
       echo "<url>"
       echo "  <loc>$REMOTEFILE</loc>"
@@ -430,7 +428,7 @@ LISTFILE=$($MKTEMP --suffix=-list) || { err "Failed to create LIST temp file. $M
 SORTFILE=$($MKTEMP --suffix=-sort) || { err "Failed to create SORT temp file. $MKTEMP exists and/or /tmp is writable?"; }
 
 # Crawler
-echo -e "Scan:$GREEN_BEGIN $URLSCAN $GREEN_END"
+printf "\n Scan: %b %s %b \n\n" "$GREEN_BEGIN" "$URLSCAN" "$GREEN_END"
 
 if [ ${VERBOSE:-""} = '1' ]; then
   if ! [ -x "$(command -v tee)" ]; then
@@ -470,13 +468,22 @@ while read -r FILELIST; do
     *privacy*|*cookie*)
       #makeurl "$FILELIST" # This works for me, if you need to insert this type of file too, uncomment the line.
       ;;
-    *\.jpg|*\.gif*|*\.jpeg*|*\.ico*|*\.png*|*\.svg*|*\.webp* )
+    *\.jpg|*\.gif|*\.jpeg|*\.ico|*\.png|*\.svg|*\.webp )
       #makeurl "$FILELIST" # This works for me, if you need to insert this type of file too, uncomment the line.
       ;;
-    *\.eot*|*\.ttf*|*\.woff*|*\.woff2*|*\.otf* )
+    *\.jpg\?*|*\.gif\?*|*\.jpeg\?*|*\.ico\?*|*\.png\?*|*\.svg\?*|*\.webp\?* )
       #makeurl "$FILELIST" # This works for me, if you need to insert this type of file too, uncomment the line.
       ;;
-    *\.js*|*\.css*|*\.min\.* )
+    *\.eot|*\.ttf|*\.woff|*\.woff2|*\.otf )
+      #makeurl "$FILELIST" # This works for me, if you need to insert this type of file too, uncomment the line.
+      ;;
+    *\.eot\?*|*\.ttf\?*|*\.woff\?*|*\.woff2\?*|*\.otf\?* )
+      #makeurl "$FILELIST" # This works for me, if you need to insert this type of file too, uncomment the line.
+      ;;
+    *\.js|*\.css)
+      #makeurl "$FILELIST" # This works for me, if you need to insert this type of file too, uncomment the line.
+      ;;
+    *\.js\?*|*\.css\?*)
       #makeurl "$FILELIST" # This works for me, if you need to insert this type of file too, uncomment the line.
       ;;
     *)

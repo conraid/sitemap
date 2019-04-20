@@ -1,5 +1,10 @@
 = Changelog
 
+== 1.4 ==
+
+- Move color output to posix
+- Clean check extension files
+
 == 1.3 ==
 
 - Added color output
