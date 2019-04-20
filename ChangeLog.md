@@ -1,5 +1,9 @@
 = Changelog
 
+== 1.3 ==
+
+- Added color output
+
 == 1.2 ==
 
 - Added fonts to exclusion list

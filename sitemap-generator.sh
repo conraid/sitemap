@@ -36,7 +36,7 @@ set -eu
 ### VARIABLES ###
 
 # Set script version
-VERSION=1.2
+VERSION=1.3
 
 # THE DEFAULT INITIALIZATIONS - OPTIONALS
 DEFAULT_INDEX="index.php"
@@ -50,12 +50,18 @@ MKTEMP="/usr/bin/mktemp" # Path of mktemp, or another temporary file creator (ex
 # Set the default wget options
 WGET_OPTIONS="--spider -r -nd -l inf --no-verbose --no-check-certificate -np"
 
+# Color variables
+RED_BEGIN="\\033[1;31m"
+RED_END="\\033[0;39m"
+GREEN_BEGIN="\\033[1;32m"
+GREEN_END="\\033[0;39m"
+
 ### FUNCTIONS ###
 
 # Print error in STDERR
 err() {
   echo
-  echo " [$(date +'%Y-%m-%d %H:%M:%S %z')]:" "$@" >&2
+  echo -e " [$(date +'%Y-%m-%d %H:%M:%S %z')]:"  $RED_BEGIN "$@" $RED_END >&2
   echo
   exit 1
 }
@@ -199,7 +205,7 @@ makeurl() {
       else
 	      # Show a error but not exit.
 	      LASTMOD=""
-	      echo "FILE $FILE not exists. Check parameters"
+	      echo -e "$RED_BEGIN FILE $FILE not exists $RED_END. Check parameters"
       fi
     fi
 
@@ -225,7 +231,7 @@ makeurl() {
     # End
 
 
-    echo "Add $REMOTEFILE"
+    echo -e "$GREEN_BEGIN Add $REMOTEFILE $GREEN_END"
     {
       echo "<url>"
       echo "  <loc>$REMOTEFILE</loc>"
@@ -424,7 +430,7 @@ LISTFILE=$($MKTEMP --suffix=-list) || { err "Failed to create LIST temp file. $M
 SORTFILE=$($MKTEMP --suffix=-sort) || { err "Failed to create SORT temp file. $MKTEMP exists and/or /tmp is writable?"; }
 
 # Crawler
-echo "Scan: $URLSCAN"
+echo -e "Scan:$GREEN_BEGIN $URLSCAN $GREEN_END"
 
 if [ ${VERBOSE:-""} = '1' ]; then
   if ! [ -x "$(command -v tee)" ]; then
