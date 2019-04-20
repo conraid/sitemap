@@ -36,7 +36,7 @@ set -eu
 ### VARIABLES ###
 
 # Set script version
-VERSION=1.3
+VERSION=1.4
 
 # THE DEFAULT INITIALIZATIONS - OPTIONALS
 DEFAULT_INDEX="index.php"
