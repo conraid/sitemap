@@ -66,20 +66,20 @@ err() {
 
 # Check root user
 check_root() {
-if [ -x "$(command -v wid)" ]; then
-  if test "$(id -u)" == "0"; then
+if [ -x "$(command -v id)" ]; then
+  if test "$(id -u)" = "0"; then
     echo "This script should not be run as root"
     exit 1
   fi
-elif [ -x "$(command -v wwhoami)" ]; then
-  if test "$(whoami)" == "root"; then
+elif [ -x "$(command -v whoami)" ]; then
+  if test "$(whoami)" = "root"; then
     echo "This script should not be run as root"
     exit 1
   fi
 else
   echo "Unable to determine if the script is run with the root user, consider whether to continue or not."
-  read -er -p "Do you want continue? [y/N]"
-  if [ "${REPLY:0:1}" == "y" ] || [ "${REPLY:0:1}" == "Y" ]; then
+  read -r -p "Do you want continue? [y/N]" CONTINUE
+  if [ "${CONTINUE}" = "y" ] || [ "${CONTINUE}" = "Y" ]; then
 	echo "Ok, continue"
 	sleep 5
   else
