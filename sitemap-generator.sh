@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright 2019 Corrado Franco (http://conraid.net)
+# Copyright 2019-2020 Corrado Franco (https://corradofranco.it)
 # All rights reserved.
 #
 # This program is free software: you can redistribute it and/or modify
@@ -36,7 +36,7 @@ set -eu
 ### VARIABLES ###
 
 # Set script version
-VERSION=1.4
+VERSION=1.5
 
 # THE DEFAULT INITIALIZATIONS - OPTIONALS
 DEFAULT_INDEX="index.php"
@@ -66,17 +66,25 @@ err() {
 
 # Check root user
 check_root() {
-if [ -x "$(command -v id)" ]; then
-  if test "$(id -u)" = "0"; then
-    err "This script should not be run as root"
+if [ -x "$(command -v wid)" ]; then
+  if test "$(id -u)" == "0"; then
+    echo "This script should not be run as root"
+    exit 1
   fi
-elif [ -x "$(command -v whoami)" ]; then
-  if test "$(whoami)" = "whoami"; then
-    err "This script should not be run as root"
+elif [ -x "$(command -v wwhoami)" ]; then
+  if test "$(whoami)" == "root"; then
+    echo "This script should not be run as root"
+    exit 1
   fi
 else
   echo "Unable to determine if the script is run with the root user, consider whether to continue or not."
-  sleep 10
+  read -er -p "Do you want continue? [y/N]"
+  if [ "${REPLY:0:1}" == "y" ] || [ "${REPLY:0:1}" == "Y" ]; then
+	echo "Ok, continue"
+	sleep 5
+  else
+	exit 1
+  fi
 fi
 }
 
@@ -195,15 +203,15 @@ makeurl() {
       FILE=$(echo "$1" | sed "s|${LOCALURL}|$DOCROOT|")
 
       if [ -d "$FILE" ]; then
-	      FILE="${FILE}"/"${INDEX_FILE:-$DEFAULT_INDEX}"
+        FILE="${FILE}"/"${INDEX_FILE:-$DEFAULT_INDEX}"
       fi
 
       if [ -f "$FILE" ]; then
-	      LASTMOD=$(date -r "$FILE" +%F)
+        LASTMOD=$(date -r "$FILE" +%F)
       else
-	      # Show a error but not exit.
-	      LASTMOD=""
-	      printf "\n %b FILE %s not exists %b Check parameters. \n\n" "$RED_BEGIN" "$FILE" "$RED_END"
+        # Show a error but not exit.
+        LASTMOD=""
+        printf "\n %b FILE %s not exists %b Check parameters. \n\n" "$RED_BEGIN" "$FILE" "$RED_END"
       fi
     fi
 
@@ -218,13 +226,13 @@ makeurl() {
     # Begin
     case "$1" in
       */ )
-	      PRIORITY="1"
-	      FREQ=daily
-	      ;;
+        PRIORITY="1"
+        FREQ=daily
+        ;;
       *legal*|*privacy*|*cookie* )
-	      PRIORITY="0.2"
-	      FREQ=monthly
-	      ;;
+        PRIORITY="0.2"
+        FREQ=monthly
+        ;;
     esac
     # End
 

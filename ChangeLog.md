@@ -1,5 +1,9 @@
 = Changelog
 
+== 1.5 ==
+
+- Fixed whoami error
+
 == 1.4 ==
 
 - Move color output to posix
